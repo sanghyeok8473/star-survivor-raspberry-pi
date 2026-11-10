@@ -16,7 +16,7 @@ class Game:
         self.player = Player()
 
         self.score = 0
-        self.hp = 100
+        self.lives = 3
         self.running = False
 
         # 배경 별 생성
@@ -45,7 +45,7 @@ class Game:
             old_y,
             self.stars,
             self.score,
-            self.hp
+            self.lives
         )
 
         previous_time = time.monotonic()
@@ -59,21 +59,26 @@ class Game:
 
                 # 1. 배경 별 이동
                 for star in self.stars:
+
+                    # 별의 이전 위치 저장
+                    old_star_x = star["x"]
                     old_star_y = int(star["y"])
 
                     star["y"] += star["speed"] * dt * 30
 
+                    # 화면 아래에 도달하면 위쪽에서 다시 생성
                     if star["y"] > 214:
                         star["y"] = 50
                         star["x"] = random.randint(5, 230)
 
+                    new_star_x = star["x"]
                     new_star_y = int(star["y"])
 
-                    if old_star_y != new_star_y:
+                    if old_star_x != new_star_x or old_star_y != new_star_y:
                         self.display.update_star(
-                            star["x"],
+                            old_star_x,
                             old_star_y,
-                            star["x"],
+                            new_star_x,
                             new_star_y,
                             star["size"],
                             int(self.player.x),

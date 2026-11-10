@@ -51,6 +51,7 @@ class Display:
 
         self.draw = ImageDraw.Draw(self.image)
         self.font = ImageFont.load_default()
+        self.hud_font = ImageFont.load_default(size=12)
 
     def _show_region(self, box):
         """지정한 영역만 LCD에 전송"""
@@ -77,7 +78,7 @@ class Display:
             y=self.HEIGHT - bottom
         )
 
-    def draw_static_background(self, score=0, hp=100):
+    def draw_static_background(self, score=0, lives=3):
         """고정 HUD와 기본 배경 생성"""
 
         self.background = Image.new(
@@ -96,15 +97,18 @@ class Display:
             fill=self.CYAN, width=1
         )
 
+        # 점수 표시
         draw.text(
             (10, 35), f"SCORE: {score:04d}",
-            font=self.font, fill=self.YELLOW
+            font=self.hud_font, fill=self.YELLOW
         )
 
-        draw.text(
-            (155, 35), f"HP: {hp}",
-            font=self.font, fill=self.RED
-        )
+        # 체력 표시: 하트 3개
+        self.draw = draw
+
+        for i in range(3):
+            color = self.RED if i < lives else (60, 60, 60)
+            self.draw_heart(170 + i * 18, 35, color)
 
         draw.line(
             (10, 215, 230, 215),
@@ -119,6 +123,28 @@ class Display:
         self.image = self.background.copy()
         self.draw = ImageDraw.Draw(self.image)
 
+    def draw_heart(self, x, y, color):
+        """하트 아이콘 출력"""
+
+        self.draw.ellipse(
+            (x, y, x + 7, y + 7),
+            fill=color
+        )
+
+        self.draw.ellipse(
+            (x + 6, y, x + 13, y + 7),
+            fill=color
+        )
+
+        self.draw.polygon(
+            [
+                (x, y + 4),
+                (x + 13, y + 4),
+                (x + 6, y + 13)
+            ],
+            fill=color
+        )
+    
     def draw_spaceship(self, x, y):
         """우주선 출력"""
 
@@ -145,10 +171,10 @@ class Display:
             fill=self.WHITE
         )
 
-    def initialize_game_screen(self, x, y, stars, score=0, hp=100):
+    def initialize_game_screen(self, x, y, stars, score=0, lives=3):
         """게임 시작 시 전체 화면 한 번 출력"""
 
-        self.draw_static_background(score, hp)
+        self.draw_static_background(score, lives)
 
         for star in stars:
             self.draw_star(star["x"], star["y"], star["size"])
@@ -157,10 +183,60 @@ class Display:
 
         self.disp.image(self.image)
 
+    def _refresh_star_patch(self, x, y, size, 
+                        player_x, player_y, draw_star=False):
+        """별의 작은 영역만 복원하고 갱신"""
+
+        left = max(0, x - 1)
+        top = max(0, y - 1)
+        right = min(self.WIDTH, x + size + 1)
+        bottom = min(self.HEIGHT, y + size + 1)
+
+        self.image.paste(
+            self.background.crop((left, top, right, bottom)),
+            (left, top)
+        )
+
+        self.draw = ImageDraw.Draw(self.image)
+
+        if draw_star:
+            self.draw_star(x, y, size)
+
+        # 우주선이 겹치는 영역이면 우주선을 다시 출력
+        if player_x is not None and player_y is not None:
+            overlap = (
+                left < player_x + 12 and
+                right > player_x - 12 and
+                top < player_y + 13 and
+                bottom > player_y - 16
+            )
+
+            if overlap:
+                self.draw_spaceship(player_x, player_y)
+
+        self._show_region((left, top, right, bottom))
     
     def update_star(self, old_x, old_y, new_x, new_y, size=2,
                     player_x=None, player_y=None):
         """별 이동 및 우주선 겹침 처리"""
+        if abs(new_x - old_x) > 10 or abs(new_y - old_y) > 10:
+
+            # 이전 위치의 별 제거
+            self._refresh_star_patch(
+                old_x, old_y, size,
+                player_x, player_y,
+                draw_star=False
+            )
+
+            # 새로운 위치에 별 출력
+            self._refresh_star_patch(
+                new_x, new_y, size,
+                player_x, player_y,
+                draw_star=True
+            )
+
+            return
+
 
         left = min(old_x, new_x) - 1
         top = min(old_y, new_y) - 1
