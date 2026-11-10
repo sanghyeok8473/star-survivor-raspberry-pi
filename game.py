@@ -18,6 +18,7 @@ class Game:
         self.score = 0
         self.lives = 3
         self.running = False
+        self.started = False
 
         # 배경 별 생성
         self.stars = []
@@ -31,9 +32,8 @@ class Game:
             })
 
     def run(self):
-        """게임 메인 루프"""
-
         self.running = True
+        self.started = False
 
         print("STAR SURVIVOR 시작!")
 
@@ -54,19 +54,26 @@ class Game:
             while self.running:
                 current_time = time.monotonic()
 
+                # 게임 시작 전 대기
+                if not self.started:
+                    if self.controls.is_start_pressed():
+                        self.started = True
+                        previous_time = current_time
+                        print("게임 시작!")
+
+                    time.sleep(0.05)
+                    continue
+
                 dt = min(current_time - previous_time, 0.05)
                 previous_time = current_time
 
-                # 1. 배경 별 이동
+                # 별 이동
                 for star in self.stars:
-
-                    # 별의 이전 위치 저장
                     old_star_x = star["x"]
                     old_star_y = int(star["y"])
 
                     star["y"] += star["speed"] * dt * 30
 
-                    # 화면 아래에 도달하면 위쪽에서 다시 생성
                     if star["y"] > 214:
                         star["y"] = 50
                         star["x"] = random.randint(5, 230)
@@ -85,7 +92,7 @@ class Game:
                             int(self.player.y)
                         )
 
-                # 2. 조이스틱 입력
+                # 우주선 이동
                 dx, dy = self.controls.get_direction()
 
                 old_x = int(self.player.x)
@@ -97,13 +104,9 @@ class Game:
                 new_x = int(self.player.x)
                 new_y = int(self.player.y)
 
-                # 3. 우주선 위치 갱신
                 if old_x != new_x or old_y != new_y:
                     self.display.update_spaceship(
-                        old_x,
-                        old_y,
-                        new_x,
-                        new_y
+                        old_x, old_y, new_x, new_y
                     )
 
                 time.sleep(0.01)

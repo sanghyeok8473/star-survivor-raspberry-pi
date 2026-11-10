@@ -116,7 +116,7 @@ class Display:
         )
 
         draw.text(
-            (65, 224), "READY TO START",
+            (45, 224), "PRESS BUTTON A TO START",
             font=self.font, fill=self.WHITE
         )
 
