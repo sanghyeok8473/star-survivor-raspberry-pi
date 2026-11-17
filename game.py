@@ -6,7 +6,8 @@ from display import Display
 from controls import Controls
 from player import Player
 from asteroid import Asteroid
-from collision import check_asteroid_collision
+from collision import check_asteroid_collision, check_orb_collision
+from item import EnergyOrb
 
 class Game:
     """STAR SURVIVOR 게임 진행 관리"""
@@ -28,6 +29,8 @@ class Game:
         self.player_visible = True
         self.game_over = False
         self.restart_button_released = False
+        self.orbs = []
+        self.orb_spawn_timer = 0.0
 
         # 배경 별 생성
         self.stars = []
@@ -58,6 +61,8 @@ class Game:
         self.restart_button_released = False
         self.started = True
         self.player_visible = True
+        self.orbs = []
+        self.orb_spawn_timer = 0.0
 
         # 배경 별 위치 초기화
         for star in self.stars:
@@ -189,6 +194,46 @@ class Game:
 
                 self.asteroids = remaining_asteroids
 
+                # 에너지 구슬 생성
+                self.orb_spawn_timer += dt
+
+                if self.orb_spawn_timer >= 4.0 and len(self.orbs) < 2:
+                    self.orbs.append(EnergyOrb())
+                    self.orb_spawn_timer = 0.0
+
+                # 에너지 구슬 이동
+                remaining_orbs = []
+
+                for orb in self.orbs:
+                    old_x = int(orb.x)
+                    old_y = int(orb.y)
+                    r = orb.radius + 2
+
+                    orb.update(dt)
+
+                    new_orb_x = int(orb.x)
+                    new_orb_y = int(orb.y)
+
+                    if old_x != new_orb_x or old_y != new_orb_y:
+                        regions.append((
+                            old_x - r - 2,
+                            old_y - r - 2,
+                            old_x + r + 3,
+                            old_y + r + 3
+                        ))
+
+                        regions.append((
+                            new_orb_x - r - 2,
+                            new_orb_y - r - 2,
+                            new_orb_x + r + 3,
+                            new_orb_y + r + 3
+                        ))
+
+                    if not orb.is_out_of_bounds():
+                        remaining_orbs.append(orb)
+
+                self.orbs = remaining_orbs
+
                 # 배경 별 이동
                 for star in self.stars:
                     old_x = int(star["x"])
@@ -308,6 +353,32 @@ class Game:
                 if self.game_over:
                     continue
 
+                # 에너지 구슬 획득 판정
+                remaining_orbs = []
+
+                for orb in self.orbs:
+                    if check_orb_collision(self.player, orb):
+                        self.score += 100
+
+                        print(f"에너지 구슬 획득! 현재 점수: {self.score}")
+
+                        self.display.update_score(self.score)
+
+                        # 획득한 구슬 영역을 다시 그리도록 기록
+                        r = orb.radius + 2
+
+                        regions.append((
+                            int(orb.x) - r - 2,
+                            int(orb.y) - r - 2,
+                            int(orb.x) + r + 3,
+                            int(orb.y) + r + 3
+                        ))
+
+                    else:
+                        remaining_orbs.append(orb)
+
+                self.orbs = remaining_orbs
+
                 # 변경 영역만 LCD에 출력
                 self.display.update_game_objects(
                     regions,
@@ -315,7 +386,8 @@ class Game:
                     self.asteroids,
                     new_x,
                     new_y,
-                    show_player=self.player_visible
+                    show_player=self.player_visible,
+                    orbs=self.orbs
                 )
 
                 time.sleep(0.01)

@@ -198,6 +198,29 @@ class Display:
 
         # 하트 영역만 LCD에 전송
         self._show_region(box)
+
+    def update_score(self, score):
+        """점수 표시 영역만 갱신"""
+
+        box = (8, 32, 155, 52)
+
+        background_draw = ImageDraw.Draw(self.background)
+        background_draw.rectangle(box, fill=self.BLACK)
+
+        background_draw.text(
+            (10, 35),
+            f"SCORE: {score:04d}",
+            font=self.hud_font,
+            fill=self.YELLOW
+        )
+
+        self.image.paste(
+            self.background.crop(box),
+            (box[0], box[1])
+        )
+
+        self.draw = ImageDraw.Draw(self.image)
+        self._show_region(box)
     
     def draw_spaceship(self, x, y):
         """우주선 출력"""
@@ -241,6 +264,40 @@ class Display:
             (x - radius // 2, y - radius // 2,
             x, y),
             fill=(75, 70, 68)
+        )
+
+    def draw_energy_orb(self, x, y, radius):
+        """에너지 구슬 출력"""
+
+        x = int(x)
+        y = int(y)
+
+        # 바깥쪽 광채
+        self.draw.ellipse(
+            (
+                x - radius - 2,
+                y - radius - 2,
+                x + radius + 2,
+                y + radius + 2
+            ),
+            fill=(0, 65, 85)
+        )
+
+        # 구슬 본체
+        self.draw.ellipse(
+            (
+                x - radius,
+                y - radius,
+                x + radius,
+                y + radius
+            ),
+            fill=(0, 220, 255)
+        )
+
+        # 중앙의 밝은 빛
+        self.draw.ellipse(
+            (x - 2, y - 2, x + 2, y + 2),
+            fill=(220, 255, 255)
         )
 
     def initialize_game_screen(
@@ -377,7 +434,7 @@ class Display:
 
     def update_game_objects(
         self, regions, stars, asteroids,
-        player_x, player_y, show_player=True
+        player_x, player_y, show_player=True, orbs=None
     ):
         """변경된 작은 영역만 복원하고 모든 객체를 올바른 순서로 다시 그림"""
 
@@ -457,6 +514,20 @@ class Display:
                     and top < y + r + 1 and bottom > y - r
                 ):
                     self.draw_asteroid(x, y, r)
+
+            # 에너지 구슬 출력
+            for orb in (orbs or []):
+                x = int(orb.x)
+                y = int(orb.y)
+                r = orb.radius + 2
+
+                if (
+                    left < x + r + 1
+                    and right > x - r
+                    and top < y + r + 1
+                    and bottom > y - r
+                ):
+                    self.draw_energy_orb(x, y, orb.radius)
 
             # 우주선은 항상 최상위 레이어
             if (

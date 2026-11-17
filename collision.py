@@ -19,3 +19,20 @@ def check_asteroid_collision(player, asteroid):
     distance_squared = closest_x ** 2 + closest_y ** 2
 
     return distance_squared <= asteroid.radius ** 2
+
+def check_orb_collision(player, orb):
+    """우주선과 에너지 구슬의 충돌 판정"""
+
+    player_half_width = 8
+    player_half_height = 11
+
+    dx = abs(orb.x - player.x)
+    dy = abs(orb.y - player.y)
+
+    closest_x = max(dx - player_half_width, 0)
+    closest_y = max(dy - player_half_height, 0)
+
+    return (
+        closest_x ** 2 + closest_y ** 2
+        <= orb.radius ** 2
+    )
