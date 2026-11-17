@@ -2,6 +2,7 @@
 import board
 import digitalio
 import adafruit_rgb_display.st7789
+import math
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -52,6 +53,9 @@ class Display:
         self.draw = ImageDraw.Draw(self.image)
         self.font = ImageFont.load_default()
         self.hud_font = ImageFont.load_default(size=12)
+        self.skill_cooldown_remaining = 0.0
+        self.skill_font = ImageFont.load_default(size=12)
+        self.shield_color = (80, 255, 160)
 
     def _show_region(self, box):
         """지정한 영역만 LCD에 전송"""
@@ -167,6 +171,9 @@ class Display:
 
         self.draw = ImageDraw.Draw(self.image)
         self._show_region(box)
+
+        # 시작 안내 문구를 지운 후 스킬 아이콘 다시 표시
+        self.update_skill_icon(0)
 
     def draw_heart(self, x, y, color):
         """하트 아이콘 출력"""
@@ -296,6 +303,88 @@ class Display:
         self.draw = ImageDraw.Draw(self.image)
         self._show_region(box)
 
+    def draw_skill_icon_overlay(self):
+        """현재 화면 버퍼에 스킬 아이콘 그리기 (LCD 전송 없음)"""
+
+        cx, cy = 213, 191
+        radius = 17
+
+        draw = ImageDraw.Draw(self.image)
+
+        cooling = self.skill_cooldown_remaining > 0
+
+        outline = (75, 90, 100) if cooling else self.CYAN
+        fill = (18, 25, 32) if cooling else (0, 45, 65)
+
+        draw.ellipse(
+            (cx-radius, cy-radius, cx+radius, cy+radius),
+            fill=fill,
+            outline=outline,
+            width=2
+        )
+
+        shield_color = (45, 65, 75) if cooling else (0, 100, 140)
+        shield_outline = (75, 95, 105) if cooling else self.CYAN
+
+        draw.polygon(
+            [
+                (cx, cy - 12),
+                (cx + 10, cy - 7),
+                (cx + 9, cy + 5),
+                (cx, cy + 13),
+                (cx - 9, cy + 5),
+                (cx - 10, cy - 7)
+            ],
+            fill=shield_color,
+            outline=shield_outline
+        )
+
+        if cooling:
+            text = str(math.ceil(self.skill_cooldown_remaining))
+            font = ImageFont.load_default(size=15)
+
+            bbox = draw.textbbox((0, 0), text, font=font)
+
+            x = cx - (bbox[2] - bbox[0]) // 2
+            y = cy - (bbox[3] - bbox[1]) // 2 - bbox[1]
+
+            draw.text(
+                (x, y),
+                text,
+                font=font,
+                fill=(230, 230, 230)
+            )
+        else:
+            draw.line(
+                (cx, cy - 7, cx, cy + 7),
+                fill=self.WHITE,
+                width=2
+            )
+            draw.line(
+                (cx - 6, cy, cx + 6, cy),
+                fill=self.WHITE,
+                width=2
+            )
+
+        self.draw = ImageDraw.Draw(self.image)
+
+
+    def update_skill_icon(self, cooldown=0):
+        """스킬 아이콘 영역 갱신"""
+
+        self.skill_cooldown_remaining = cooldown
+
+        box = (194, 172, 233, 211)
+
+        # 아이콘 영역의 배경을 복원
+        self.image.paste(
+            self.background.crop(box),
+            (box[0], box[1])
+        )
+
+        self.draw_skill_icon_overlay()
+        self._show_region(box)
+
     def show_pause(self):
         """게임 화면 중앙에 일시정지 박스 표시"""
 
@@ -354,8 +443,19 @@ class Display:
 
         del self.pause_background
     
-    def draw_spaceship(self, x, y):
-        """우주선 출력"""
+    def draw_spaceship(self, x, y, shield_active=False):
+        """우주선 및 보호막 출력"""
+
+        if shield_active:
+            # 우주선 주변 원형 보호막
+            self.draw.ellipse(
+                (x - 17, y - 19, x + 17, y + 19),
+                fill=(0, 35, 30),
+                outline=self.shield_color,
+                width=2
+            )
+
+        ship_color = self.shield_color if shield_active else self.CYAN
 
         self.draw.polygon(
             [
@@ -364,7 +464,7 @@ class Display:
                 (x, y + 7),
                 (x + 11, y + 12)
             ],
-            fill=self.CYAN
+            fill=ship_color
         )
 
         self.draw.ellipse(
@@ -447,6 +547,9 @@ class Display:
             self.draw_star(star["x"], star["y"], star["size"])
 
         self.draw_spaceship(x, y)
+
+        # 시작 화면에도 사용 가능한 스킬 아이콘 표시
+        self.update_skill_icon(0)
 
         self.disp.image(self.image)
 
@@ -566,7 +669,7 @@ class Display:
 
     def update_game_objects(
         self, regions, stars, asteroids,
-        player_x, player_y, show_player=True, orbs=None
+        player_x, player_y, show_player=True, orbs=None, shield_active=False
     ):
         """변경된 작은 영역만 복원하고 모든 객체를 올바른 순서로 다시 그림"""
 
@@ -661,13 +764,34 @@ class Display:
                 ):
                     self.draw_energy_orb(x, y, orb.radius)
 
-            # 우주선은 항상 최상위 레이어
+            # 스킬 아이콘을 먼저 그리기
+            skill_box = (194, 172, 233, 211)
+
             if (
-                show_player and left < player_x + 12 and right > player_x - 12
-                and top < player_y + 13 and bottom > player_y - 16
+                left < skill_box[2]
+                and right > skill_box[0]
+                and top < skill_box[3]
+                and bottom > skill_box[1]
             ):
-                self.draw_spaceship(player_x, player_y)
-            
+                self.draw_skill_icon_overlay()
+
+            # 우주선은 스킬 아이콘보다 위에 표시
+            ship_radius_x = 18 if shield_active else 12
+            ship_radius_y = 20 if shield_active else 16
+
+            if (
+                show_player
+                and left < player_x + ship_radius_x
+                and right > player_x - ship_radius_x
+                and top < player_y + ship_radius_y
+                and bottom > player_y - ship_radius_y
+            ):
+                self.draw_spaceship(
+                    player_x,
+                    player_y,
+                    shield_active=shield_active
+                )
+
             self._show_region((left, top, right, bottom))
 
     def show_game_over(self, score, level):

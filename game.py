@@ -1,6 +1,7 @@
 
 import time
 import random
+import math
 
 from display import Display
 from controls import Controls
@@ -35,6 +36,15 @@ class Game:
         self.level_up_visible = False
         self.paused = False
         self.pause_button_was_pressed = False
+
+        # A 버튼 무적 스킬
+        self.skill_duration = 5.0
+        self.skill_cooldown = 30.0
+
+        self.skill_timer = 0.0
+        self.skill_cooldown_timer = 0.0
+        self.skill_button_was_pressed = False
+        self.skill_cooldown_display = 0
 
         # 배경 별 생성
         self.stars = []
@@ -73,6 +83,13 @@ class Game:
 
         self.paused = False
         self.pause_button_was_pressed = False
+
+        self.skill_timer = 0.0
+        self.skill_cooldown_timer = 0.0
+        self.skill_cooldown_display = 0
+
+        # 재시작에 사용한 A 버튼이 곧바로 스킬을 발동하지 않도록 처리
+        self.skill_button_was_pressed = True
 
         # 배경 별 위치 초기화
         for star in self.stars:
@@ -132,6 +149,7 @@ class Game:
                 if not self.started:
                     if self.controls.is_start_pressed():
                         self.started = True
+                        self.skill_button_was_pressed = True
                         previous_time = current_time
 
                         self.display.clear_start_message()
@@ -162,11 +180,66 @@ class Game:
                 if self.paused:
                     time.sleep(0.02)
                     continue
-                
+
                 dt = min(current_time - previous_time, 0.05)
                 previous_time = current_time
 
                 regions = []
+
+                # 스킬 발동 전 상태 저장
+                previous_skill_active = self.skill_timer > 0
+
+                # A 버튼 스킬 입력
+                skill_pressed = self.controls.is_start_pressed()
+
+                if (
+                    skill_pressed
+                    and not self.skill_button_was_pressed
+                    and self.skill_cooldown_timer <= 0
+                ):
+                    self.skill_timer = self.skill_duration
+                    self.skill_cooldown_timer = self.skill_cooldown
+
+                    print("보호막 스킬 발동!")
+
+                self.skill_button_was_pressed = skill_pressed
+
+                # 스킬 지속 시간 및 쿨타임 감소
+                self.skill_timer = max(0.0, self.skill_timer - dt)
+
+                self.skill_cooldown_timer = max(
+                    0.0, self.skill_cooldown_timer - dt
+                )
+
+                # 현재 스킬 활성화 상태
+                skill_active = self.skill_timer > 0
+
+                # 보호막 시작 또는 종료 시 화면 갱신
+                if previous_skill_active != skill_active:
+                    px, py = int(self.player.x), int(self.player.y)
+
+                    regions.append((
+                        px - 19, py - 21,
+                        px + 20, py + 22
+                    ))
+
+                    if not skill_active:
+                        print("보호막 스킬 종료")
+
+                # 쿨타임 숫자가 달라질 때만 갱신
+                remaining = math.ceil(self.skill_cooldown_timer)
+
+                if remaining != self.skill_cooldown_display:
+                    self.skill_cooldown_display = remaining
+                    self.display.update_skill_icon(self.skill_cooldown_timer)
+
+                    # 쿨타임 숫자 변경 시 우주선도 다시 그리기
+                    px, py = int(self.player.x), int(self.player.y)
+
+                    regions.append((
+                        px - 19, py - 21,
+                        px + 20, py + 22
+                    ))
 
                 # 생존 시간 및 레벨 갱신
                 self.survival_time += dt
@@ -352,13 +425,13 @@ class Game:
 
                 if old_x != new_x or old_y != new_y:
                     regions.append((
-                        old_x - 12, old_y - 16,
-                        old_x + 13, old_y + 14
+                        old_x - 19, old_y - 21,
+                        old_x + 20, old_y + 22
                     ))
 
                     regions.append((
-                        new_x - 12, new_y - 16,
-                        new_x + 13, new_y + 14
+                        new_x - 19, new_y - 21,
+                        new_x + 20, new_y + 22
                     ))
 
                 # 충돌 후 무적 시간 감소
@@ -367,7 +440,7 @@ class Game:
                 )
 
                 # 무적 시간 동안 우주선 깜빡임
-                if self.invincible_timer > 0:
+                if self.invincible_timer > 0 and not skill_active:
                     # 약 0.12초 간격으로 표시/숨김 전환
                     player_visible = int(self.invincible_timer / 0.12) % 2 == 0
                 else:
@@ -385,7 +458,7 @@ class Game:
                 self.player_visible = player_visible
 
                 # 소행성과 우주선 충돌 판정
-                if self.invincible_timer <= 0:
+                if self.invincible_timer <= 0 and not skill_active:
                     for asteroid in self.asteroids:
                         if check_asteroid_collision(self.player, asteroid):
 
@@ -465,7 +538,8 @@ class Game:
                     new_x,
                     new_y,
                     show_player=self.player_visible,
-                    orbs=self.orbs
+                    orbs=self.orbs,
+                    shield_active=skill_active
                 )
 
                 time.sleep(0.01)
