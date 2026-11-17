@@ -6,7 +6,7 @@ from display import Display
 from controls import Controls
 from player import Player
 from asteroid import Asteroid
-
+from collision import check_asteroid_collision
 
 class Game:
     """STAR SURVIVOR 게임 진행 관리"""
@@ -24,6 +24,9 @@ class Game:
         self.survival_time = 0.0
         self.asteroids = []
         self.asteroid_spawn_timer = 0.0
+        self.invincible_timer = 0.0
+        self.game_over = False
+        self.restart_button_released = False
 
         # 배경 별 생성
         self.stars = []
@@ -35,6 +38,41 @@ class Game:
                 "speed": random.uniform(1.0, 3.0),
                 "size": random.choice([1, 2])
             })
+
+    def reset_game(self):
+        """게임 재시작을 위한 상태 초기화"""
+
+        self.player = Player()
+
+        self.score = 0
+        self.lives = 3
+        self.level = 1
+        self.survival_time = 0.0
+
+        self.asteroids = []
+        self.asteroid_spawn_timer = 0.0
+        self.invincible_timer = 0.0
+
+        self.game_over = False
+        self.restart_button_released = False
+        self.started = True
+
+        # 배경 별 위치 초기화
+        for star in self.stars:
+            star["x"] = random.randint(5, 230)
+            star["y"] = random.randint(50, 210)
+
+        # 새로운 게임 화면 출력
+        self.display.initialize_game_screen(
+            int(self.player.x),
+            int(self.player.y),
+            self.stars,
+            self.score,
+            self.lives,
+            show_start_message=False
+        )
+
+        print("게임 재시작!")
 
     def run(self):
         self.running = True
@@ -56,11 +94,29 @@ class Game:
             while self.running:
                 current_time = time.monotonic()
 
+                # GAME OVER 상태에서는 게임 진행 중지
+                if self.game_over:
+                    pressed = self.controls.is_start_pressed()
+
+                    # 버튼을 한 번 놓은 뒤 다시 눌러야 재시작
+                    if not pressed:
+                        self.restart_button_released = True
+
+                    elif self.restart_button_released:
+                        self.reset_game()
+                        previous_time = time.monotonic()
+
+                    time.sleep(0.05)
+                    continue
+
                 # A 버튼을 누르기 전까지 대기
                 if not self.started:
                     if self.controls.is_start_pressed():
                         self.started = True
                         previous_time = current_time
+
+                        self.display.clear_start_message()
+
                         print("게임 시작!")
 
                     time.sleep(0.05)
@@ -179,6 +235,49 @@ class Game:
                         new_x - 12, new_y - 16,
                         new_x + 13, new_y + 14
                     ))
+
+                # 충돌 후 무적 시간 감소
+                self.invincible_timer = max(
+                    0.0, self.invincible_timer - dt
+                )
+
+                # 소행성과 우주선 충돌 판정
+                if self.invincible_timer <= 0:
+                    for asteroid in self.asteroids:
+                        if check_asteroid_collision(self.player, asteroid):
+
+                            # 목숨이 0 미만으로 내려가지 않도록 제한
+                            self.lives = max(0, self.lives - 1)
+
+                            # 충돌 후 1초 무적
+                            self.invincible_timer = 1.0
+
+                            print(f"소행성 충돌! 남은 목숨: {self.lives}")
+
+                            # LCD 하트 갱신
+                            self.display.update_lives(self.lives)
+
+                            # 목숨이 모두 소진되면 GAME OVER
+                            if self.lives == 0:
+                                self.game_over = True
+                                self.restart_button_released = False
+
+                                print(
+                                    f"GAME OVER! "
+                                    f"최종 점수: {self.score}, "
+                                    f"도달 레벨: {self.level}"
+                                )
+
+                                self.display.show_game_over(
+                                    self.score,
+                                    self.level
+                                )
+
+                            break
+
+                # GAME OVER 상태면 다음 프레임으로 이동
+                if self.game_over:
+                    continue
 
                 # 변경 영역만 LCD에 출력
                 self.display.update_game_objects(

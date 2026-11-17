@@ -78,7 +78,7 @@ class Display:
             y=self.HEIGHT - bottom
         )
 
-    def draw_static_background(self, score=0, lives=3):
+    def draw_static_background(self, score=0, lives=3, show_start_message=True):
         """고정 HUD와 기본 배경 생성"""
 
         self.background = Image.new(
@@ -115,13 +115,39 @@ class Display:
             fill=self.CYAN, width=1
         )
 
-        draw.text(
-            (45, 224), "PRESS BUTTON A TO START",
-            font=self.font, fill=self.WHITE
-        )
+        if show_start_message:
+            message = "PRESS A TO START"
+
+            bbox = draw.textbbox((0, 0), message, font=self.font)
+            text_width = bbox[2] - bbox[0]
+
+            x = (self.WIDTH - text_width) // 2
+
+            draw.text(
+                (x, 224),
+                message,
+                font=self.font,
+                fill=self.WHITE
+            )
 
         self.image = self.background.copy()
         self.draw = ImageDraw.Draw(self.image)
+
+    def clear_start_message(self):
+        """게임 시작 시 하단 안내 문구 제거"""
+
+        box = (0, 216, self.WIDTH, self.HEIGHT)
+
+        background_draw = ImageDraw.Draw(self.background)
+        background_draw.rectangle(box, fill=self.BLACK)
+
+        self.image.paste(
+            self.background.crop(box),
+            (box[0], box[1])
+        )
+
+        self.draw = ImageDraw.Draw(self.image)
+        self._show_region(box)
 
     def draw_heart(self, x, y, color):
         """하트 아이콘 출력"""
@@ -144,6 +170,34 @@ class Display:
             ],
             fill=color
         )
+
+    def update_lives(self, lives):
+        """남은 목숨에 따라 하트 영역만 갱신"""
+
+        lives = max(0, min(3, lives))
+        box = (168, 33, 224, 51)
+
+        # 고정 배경의 하트 영역을 검은색으로 초기화
+        background_draw = ImageDraw.Draw(self.background)
+        background_draw.rectangle(box, fill=self.BLACK)
+
+        # 배경에 현재 목숨 상태 반영
+        self.draw = background_draw
+
+        for i in range(3):
+            color = self.RED if i < lives else (60, 60, 60)
+            self.draw_heart(170 + i * 18, 35, color)
+
+        # 실제 화면 버퍼에도 반영
+        self.image.paste(
+            self.background.crop(box),
+            (box[0], box[1])
+        )
+
+        self.draw = ImageDraw.Draw(self.image)
+
+        # 하트 영역만 LCD에 전송
+        self._show_region(box)
     
     def draw_spaceship(self, x, y):
         """우주선 출력"""
@@ -189,10 +243,16 @@ class Display:
             fill=(75, 70, 68)
         )
 
-    def initialize_game_screen(self, x, y, stars, score=0, lives=3):
-        """게임 시작 시 전체 화면 한 번 출력"""
+    def initialize_game_screen(
+        self, x, y, stars, score=0, lives=3,
+        show_start_message=True
+    ):
+        """게임 화면 초기화"""
 
-        self.draw_static_background(score, lives)
+        self.draw_static_background(
+            score, lives,
+            show_start_message=show_start_message
+        )
 
         for star in stars:
             self.draw_star(star["x"], star["y"], star["size"])
@@ -403,6 +463,51 @@ class Display:
                 self.draw_spaceship(player_x, player_y)
 
             self._show_region((left, top, right, bottom))
+
+    def show_game_over(self, score, level):
+        """게임 종료 화면 출력"""
+
+        self.image = Image.new(
+            "RGB",
+            (self.WIDTH, self.HEIGHT),
+            self.BLACK
+        )
+
+        self.draw = ImageDraw.Draw(self.image)
+
+        title_font = ImageFont.load_default(size=25)
+        info_font = ImageFont.load_default(size=16)
+
+        def centered_text(y, text, font, color):
+            bbox = self.draw.textbbox((0, 0), text, font=font)
+            text_width = bbox[2] - bbox[0]
+            x = (self.WIDTH - text_width) // 2
+
+            self.draw.text(
+                (x, y),
+                text,
+                font=font,
+                fill=color
+            )
+
+        centered_text(48, "GAME OVER", title_font, self.RED)
+        centered_text(105, f"SCORE: {score:04d}", info_font, self.YELLOW)
+        centered_text(135, f"LEVEL: {level}", info_font, self.CYAN)
+
+        self.draw.line(
+            (25, 175, 215, 175),
+            fill=self.CYAN,
+            width=1
+        )
+
+        centered_text(
+            193,
+            "PRESS A TO RESTART",
+            self.font,
+            self.WHITE
+        )
+
+        self.disp.image(self.image)
 
     def shutdown(self):
         """LCD 백라이트 종료"""
