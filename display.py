@@ -78,7 +78,10 @@ class Display:
             y=self.HEIGHT - bottom
         )
 
-    def draw_static_background(self, score=0, lives=3, show_start_message=True):
+    def draw_static_background(
+        self, score=0, lives=3, level=1,
+        show_start_message=True
+    ):
         """고정 HUD와 기본 배경 생성"""
 
         self.background = Image.new(
@@ -101,6 +104,22 @@ class Display:
         draw.text(
             (10, 35), f"SCORE: {score:04d}",
             font=self.hud_font, fill=self.YELLOW
+        )
+
+        # 현재 레벨 표시
+        level_text = f"LV.{level}"
+
+        bbox = draw.textbbox(
+            (0, 0), level_text, font=self.hud_font
+        )
+
+        text_width = bbox[2] - bbox[0]
+
+        draw.text(
+            (139 - text_width // 2, 35),
+            level_text,
+            font=self.hud_font,
+            fill=self.CYAN
         )
 
         # 체력 표시: 하트 3개
@@ -202,7 +221,7 @@ class Display:
     def update_score(self, score):
         """점수 표시 영역만 갱신"""
 
-        box = (8, 32, 155, 52)
+        box = (8, 32, 110, 52)
 
         background_draw = ImageDraw.Draw(self.background)
         background_draw.rectangle(box, fill=self.BLACK)
@@ -218,6 +237,61 @@ class Display:
             self.background.crop(box),
             (box[0], box[1])
         )
+
+        self.draw = ImageDraw.Draw(self.image)
+        self._show_region(box)
+
+    def update_level(self, level, visible=True, enlarged=False):
+        """레벨 표시 및 레벨업 애니메이션"""
+
+        box = (112, 29, 166, 53)
+
+        # 기본 배경에는 항상 일반 크기의 레벨 표시 유지
+        background_draw = ImageDraw.Draw(self.background)
+        background_draw.rectangle(box, fill=self.BLACK)
+
+        normal_text = f"LV.{level}"
+        normal_font = self.hud_font
+
+        normal_bbox = background_draw.textbbox(
+            (0, 0), normal_text, font=normal_font
+        )
+
+        normal_width = normal_bbox[2] - normal_bbox[0]
+
+        background_draw.text(
+            (139 - normal_width // 2, 35),
+            normal_text,
+            font=normal_font,
+            fill=self.CYAN
+        )
+
+        # 화면 표시 영역 초기화
+        self.image.paste(
+            self.background.crop(box),
+            (box[0], box[1])
+        )
+
+        # 레벨업 중에는 기본 글씨를 지우고 확대 표시
+        if enlarged:
+            screen_draw = ImageDraw.Draw(self.image)
+            screen_draw.rectangle(box, fill=self.BLACK)
+
+            if visible:
+                large_font = ImageFont.load_default(size=16)
+
+                large_bbox = screen_draw.textbbox(
+                    (0, 0), normal_text, font=large_font
+                )
+
+                large_width = large_bbox[2] - large_bbox[0]
+
+                screen_draw.text(
+                    (139 - large_width // 2, 32),
+                    normal_text,
+                    font=large_font,
+                    fill=self.YELLOW
+                )
 
         self.draw = ImageDraw.Draw(self.image)
         self._show_region(box)
@@ -302,12 +376,12 @@ class Display:
 
     def initialize_game_screen(
         self, x, y, stars, score=0, lives=3,
-        show_start_message=True
+        show_start_message=True, level=1
     ):
         """게임 화면 초기화"""
 
         self.draw_static_background(
-            score, lives,
+            score, lives, level,
             show_start_message=show_start_message
         )
 
@@ -434,7 +508,7 @@ class Display:
 
     def update_game_objects(
         self, regions, stars, asteroids,
-        player_x, player_y, show_player=True, orbs=None
+        player_x, player_y, show_player=True, orbs=None, level_up_level=None
     ):
         """변경된 작은 영역만 복원하고 모든 객체를 올바른 순서로 다시 그림"""
 
@@ -535,7 +609,7 @@ class Display:
                 and top < player_y + 13 and bottom > player_y - 16
             ):
                 self.draw_spaceship(player_x, player_y)
-
+            
             self._show_region((left, top, right, bottom))
 
     def show_game_over(self, score, level):

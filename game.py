@@ -31,6 +31,8 @@ class Game:
         self.restart_button_released = False
         self.orbs = []
         self.orb_spawn_timer = 0.0
+        self.level_up_timer = 0.0
+        self.level_up_visible = False
 
         # 배경 별 생성
         self.stars = []
@@ -64,6 +66,9 @@ class Game:
         self.orbs = []
         self.orb_spawn_timer = 0.0
 
+        self.level_up_timer = 0.0
+        self.level_up_visible = False
+
         # 배경 별 위치 초기화
         for star in self.stars:
             star["x"] = random.randint(5, 230)
@@ -76,7 +81,8 @@ class Game:
             self.stars,
             self.score,
             self.lives,
-            show_start_message=False
+            show_start_message=False,
+            level=self.level
         )
 
         print("게임 재시작!")
@@ -92,7 +98,8 @@ class Game:
             int(self.player.y),
             self.stars,
             self.score,
-            self.lives
+            self.lives,
+            level=self.level
         )
 
         previous_time = time.monotonic()
@@ -140,7 +147,55 @@ class Game:
 
                 if new_level != self.level:
                     self.level = new_level
-                    print(f"LEVEL {self.level}")
+
+                    self.level_up_timer = 1.2
+                    self.level_up_visible = True
+
+                    # 레벨업 순간 글씨 확대
+                    self.display.update_level(
+                        self.level,
+                        visible=True,
+                        enlarged=True
+                    )
+
+                    print(f"LEVEL UP! LEVEL {self.level}")
+
+                # 레벨업 애니메이션
+                previous_level_up_visible = self.level_up_visible
+
+                if self.level_up_timer > 0:
+                    self.level_up_timer = max(
+                        0.0,
+                        self.level_up_timer - dt
+                    )
+
+                    if self.level_up_timer > 0:
+                        # 확대된 글씨가 0.2초 간격으로 깜빡임
+                        self.level_up_visible = (
+                            int(self.level_up_timer / 0.2) % 2 == 0
+                        )
+
+                        if self.level_up_visible != previous_level_up_visible:
+                            self.display.update_level(
+                                self.level,
+                                visible=self.level_up_visible,
+                                enlarged=True
+                            )
+                    else:
+                        # 애니메이션 종료: 원래 크기와 색상으로 복구
+                        self.level_up_visible = True
+
+                        self.display.update_level(
+                            self.level,
+                            visible=True,
+                            enlarged=False
+                        )
+                else:
+                    self.level_up_visible = True
+
+                # 표시 상태가 바뀌면 중앙 영역을 다시 그리기
+                if self.level_up_visible != previous_level_up_visible:
+                    regions.append((48, 95, 192, 145))
 
                 max_asteroids = self.level + 1
                 spawn_interval = max(
