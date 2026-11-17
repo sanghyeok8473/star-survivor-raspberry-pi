@@ -25,6 +25,7 @@ class Game:
         self.asteroids = []
         self.asteroid_spawn_timer = 0.0
         self.invincible_timer = 0.0
+        self.player_visible = True
         self.game_over = False
         self.restart_button_released = False
 
@@ -56,6 +57,7 @@ class Game:
         self.game_over = False
         self.restart_button_released = False
         self.started = True
+        self.player_visible = True
 
         # 배경 별 위치 초기화
         for star in self.stars:
@@ -241,6 +243,24 @@ class Game:
                     0.0, self.invincible_timer - dt
                 )
 
+                # 무적 시간 동안 우주선 깜빡임
+                if self.invincible_timer > 0:
+                    # 약 0.12초 간격으로 표시/숨김 전환
+                    player_visible = int(self.invincible_timer / 0.12) % 2 == 0
+                else:
+                    player_visible = True
+
+                # 표시 상태가 바뀌면 우주선 영역 갱신
+                if player_visible != self.player_visible:
+                    regions.append((
+                        new_x - 12,
+                        new_y - 16,
+                        new_x + 13,
+                        new_y + 14
+                    ))
+
+                self.player_visible = player_visible
+
                 # 소행성과 우주선 충돌 판정
                 if self.invincible_timer <= 0:
                     for asteroid in self.asteroids:
@@ -251,6 +271,15 @@ class Game:
 
                             # 충돌 후 1초 무적
                             self.invincible_timer = 1.0
+
+                            self.player_visible = False
+
+                            regions.append((
+                                new_x - 12,
+                                new_y - 16,
+                                new_x + 13,
+                                new_y + 14
+                            ))
 
                             print(f"소행성 충돌! 남은 목숨: {self.lives}")
 
@@ -285,7 +314,8 @@ class Game:
                     self.stars,
                     self.asteroids,
                     new_x,
-                    new_y
+                    new_y,
+                    show_player=self.player_visible
                 )
 
                 time.sleep(0.01)

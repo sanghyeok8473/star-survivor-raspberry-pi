@@ -375,7 +375,10 @@ class Display:
 
         self._show_region((left, top, right, bottom))
 
-    def update_game_objects(self, regions, stars, asteroids, player_x, player_y):
+    def update_game_objects(
+        self, regions, stars, asteroids,
+        player_x, player_y, show_player=True
+    ):
         """변경된 작은 영역만 복원하고 모든 객체를 올바른 순서로 다시 그림"""
 
         if not regions:
@@ -457,7 +460,7 @@ class Display:
 
             # 우주선은 항상 최상위 레이어
             if (
-                left < player_x + 12 and right > player_x - 12
+                show_player and left < player_x + 12 and right > player_x - 12
                 and top < player_y + 13 and bottom > player_y - 16
             ):
                 self.draw_spaceship(player_x, player_y)
