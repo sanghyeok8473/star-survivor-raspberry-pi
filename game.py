@@ -33,6 +33,8 @@ class Game:
         self.orb_spawn_timer = 0.0
         self.level_up_timer = 0.0
         self.level_up_visible = False
+        self.paused = False
+        self.pause_button_was_pressed = False
 
         # 배경 별 생성
         self.stars = []
@@ -68,6 +70,9 @@ class Game:
 
         self.level_up_timer = 0.0
         self.level_up_visible = False
+
+        self.paused = False
+        self.pause_button_was_pressed = False
 
         # 배경 별 위치 초기화
         for star in self.stars:
@@ -136,6 +141,28 @@ class Game:
                     time.sleep(0.05)
                     continue
 
+                # B 버튼 일시정지 처리
+                pause_pressed = self.controls.is_pause_pressed()
+
+                # 새로 눌렀을 때만 상태 전환
+                if pause_pressed and not self.pause_button_was_pressed:
+                    self.paused = not self.paused
+
+                    if self.paused:
+                        self.display.show_pause()
+                        print("게임 일시정지")
+                    else:
+                        self.display.hide_pause()
+                        previous_time = time.monotonic()
+                        print("게임 재개")
+
+                self.pause_button_was_pressed = pause_pressed
+
+                # 일시정지 중에는 게임 로직 실행하지 않음
+                if self.paused:
+                    time.sleep(0.02)
+                    continue
+                
                 dt = min(current_time - previous_time, 0.05)
                 previous_time = current_time
 
@@ -192,10 +219,6 @@ class Game:
                         )
                 else:
                     self.level_up_visible = True
-
-                # 표시 상태가 바뀌면 중앙 영역을 다시 그리기
-                if self.level_up_visible != previous_level_up_visible:
-                    regions.append((48, 95, 192, 145))
 
                 max_asteroids = self.level + 1
                 spawn_interval = max(

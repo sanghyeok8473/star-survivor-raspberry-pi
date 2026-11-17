@@ -295,6 +295,64 @@ class Display:
 
         self.draw = ImageDraw.Draw(self.image)
         self._show_region(box)
+
+    def show_pause(self):
+        """게임 화면 중앙에 일시정지 박스 표시"""
+
+        box = (48, 95, 192, 145)
+
+        # 일시정지 직전 화면 저장
+        self.pause_background = self.image.crop(box).copy()
+
+        draw = ImageDraw.Draw(self.image)
+
+        # 중앙 박스
+        draw.rectangle(
+            box,
+            fill=(0, 15, 30),
+            outline=self.CYAN,
+            width=2
+        )
+
+        # PAUSED 문구
+        font = ImageFont.load_default(size=20)
+        text = "PAUSED"
+
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+
+        x = 120 - text_width // 2
+        y = 120 - text_height // 2 - bbox[1]
+
+        draw.text(
+            (x, y),
+            text,
+            font=font,
+            fill=self.YELLOW
+        )
+
+        self.draw = ImageDraw.Draw(self.image)
+        self._show_region(box)
+
+
+    def hide_pause(self):
+        """일시정지 이전 화면 복구"""
+
+        box = (48, 95, 192, 145)
+
+        if not hasattr(self, "pause_background"):
+            return
+
+        self.image.paste(
+            self.pause_background,
+            (box[0], box[1])
+        )
+
+        self.draw = ImageDraw.Draw(self.image)
+        self._show_region(box)
+
+        del self.pause_background
     
     def draw_spaceship(self, x, y):
         """우주선 출력"""
@@ -508,7 +566,7 @@ class Display:
 
     def update_game_objects(
         self, regions, stars, asteroids,
-        player_x, player_y, show_player=True, orbs=None, level_up_level=None
+        player_x, player_y, show_player=True, orbs=None
     ):
         """변경된 작은 영역만 복원하고 모든 객체를 올바른 순서로 다시 그림"""
 

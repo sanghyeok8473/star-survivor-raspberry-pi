@@ -12,7 +12,8 @@ class Controls:
             "down": board.D22,
             "left": board.D27,
             "right": board.D23,
-            "start": board.D5
+            "start": board.D5,
+            "pause": board.D6
         }
 
         self.inputs = {}
@@ -45,6 +46,10 @@ class Controls:
     def is_start_pressed(self):
         """A 버튼 입력 여부 반환"""
         return not self.inputs["start"].value
+
+    def is_pause_pressed(self):
+        """B 버튼 입력 여부 반환"""
+        return not self.inputs["pause"].value
 
     def cleanup(self):
         """GPIO 입력 자원 정리"""
