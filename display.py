@@ -171,6 +171,24 @@ class Display:
             fill=self.WHITE
         )
 
+    def draw_asteroid(self, x, y, radius):
+        """소행성 출력"""
+        x, y = int(x), int(y)
+
+        self.draw.ellipse(
+            (x - radius, y - radius, x + radius, y + radius),
+            fill=(120, 115, 110),
+            outline=(190, 180, 165),
+            width=1
+        )
+
+        # 소행성 표면의 작은 크레이터
+        self.draw.ellipse(
+            (x - radius // 2, y - radius // 2,
+            x, y),
+            fill=(75, 70, 68)
+        )
+
     def initialize_game_screen(self, x, y, stars, score=0, lives=3):
         """게임 시작 시 전체 화면 한 번 출력"""
 
@@ -296,6 +314,95 @@ class Display:
         self.draw_spaceship(new_x, new_y)
 
         self._show_region((left, top, right, bottom))
+
+    def update_game_objects(self, regions, stars, asteroids, player_x, player_y):
+        """변경된 작은 영역만 복원하고 모든 객체를 올바른 순서로 다시 그림"""
+
+        if not regions:
+            return
+
+        # 겹치거나 맞닿는 영역만 병합
+        merged = []
+
+        for region in regions:
+            left = max(0, int(region[0]))
+            top = max(50, int(region[1]))
+            right = min(self.WIDTH, int(region[2]))
+            bottom = min(215, int(region[3]))
+
+            if left >= right or top >= bottom:
+                continue
+
+            merged.append((left, top, right, bottom))
+
+        changed = True
+
+        while changed:
+            changed = False
+
+            for i in range(len(merged)):
+                if changed:
+                    break
+
+                for j in range(i + 1, len(merged)):
+                    a = merged[i]
+                    b = merged[j]
+
+                    overlap = (
+                        a[0] <= b[2] and a[2] >= b[0]
+                        and a[1] <= b[3] and a[3] >= b[1]
+                    )
+
+                    if overlap:
+                        merged[i] = (
+                            min(a[0], b[0]),
+                            min(a[1], b[1]),
+                            max(a[2], b[2]),
+                            max(a[3], b[3])
+                        )
+                        merged.pop(j)
+                        changed = True
+                        break
+
+        # 영역별로 배경을 복원하고 객체를 다시 그림
+        for left, top, right, bottom in merged:
+            self.image.paste(
+                self.background.crop((left, top, right, bottom)),
+                (left, top)
+            )
+
+            self.draw = ImageDraw.Draw(self.image)
+
+            for star in stars:
+                x = int(star["x"])
+                y = int(star["y"])
+                size = star["size"]
+
+                if (
+                    left < x + size and right > x
+                    and top < y + size and bottom > y
+                ):
+                    self.draw_star(x, y, size)
+
+            for asteroid in asteroids:
+                x = int(asteroid.x)
+                y = int(asteroid.y)
+                r = asteroid.radius
+
+                if (
+                    left < x + r + 1 and right > x - r
+                    and top < y + r + 1 and bottom > y - r
+                ):
+                    self.draw_asteroid(x, y, r)
+
+            # 우주선은 항상 최상위 레이어
+            if (
+                left < player_x + 12 and right > player_x - 12
+                and top < player_y + 13 and bottom > player_y - 16
+            ):
+                self.draw_spaceship(player_x, player_y)
+
+            self._show_region((left, top, right, bottom))
 
     def shutdown(self):
         """LCD 백라이트 종료"""
