@@ -30,3 +30,32 @@ def check_item_collision(player, item):
     """우주선과 아이템의 충돌 판정"""
 
     return check_circle_collision(player, item)
+
+def check_bullet_boss_collision(bullet, boss):
+    """총알과 타원형 보스의 충돌 판정"""
+
+    # 총알의 사각형 영역
+    bullet_left = bullet.x - bullet.width / 2
+    bullet_right = bullet.x + bullet.width / 2
+
+    bullet_top = bullet.y - bullet.height / 2
+    bullet_bottom = bullet.y + bullet.height / 2
+
+    # 보스 중심에서 가장 가까운 총알 영역의 좌표
+    closest_x = max(
+        bullet_left,
+        min(boss.x, bullet_right)
+    )
+
+    closest_y = max(
+        bullet_top,
+        min(boss.y, bullet_bottom)
+    )
+
+    radius_x = boss.width / 2
+    radius_y = boss.height / 2
+
+    dx = (closest_x - boss.x) / radius_x
+    dy = (closest_y - boss.y) / radius_y
+
+    return dx ** 2 + dy ** 2 <= 1

@@ -25,6 +25,7 @@ class Display:
         self.cs_pin = digitalio.DigitalInOut(board.CE0)
         self.dc_pin = digitalio.DigitalInOut(board.D25)
         self.reset_pin = digitalio.DigitalInOut(board.D24)
+        self.boss_font = ImageFont.load_default(size=10)
 
         self.disp = adafruit_rgb_display.st7789.ST7789(
             spi,
@@ -570,6 +571,85 @@ class Display:
             fill=(75, 70, 68)
         )
 
+    def draw_boss(self, boss):
+        """대형 소행성 보스 출력"""
+
+        left, top, right, bottom = boss.get_hitbox()
+
+        # 대형 소행성 본체
+        self.draw.ellipse(
+            (left, top, right, bottom),
+            fill=(120, 115, 110),
+            outline=(190, 180, 165),
+            width=2
+        )
+
+        # 표면의 크레이터
+        craters = [
+            (58, 94, 10),
+            (100, 88, 7),
+            (145, 105, 11),
+            (182, 94, 8),
+            (86, 111, 5),
+            (126, 88, 4)
+        ]
+
+        for x, y, radius in craters:
+            self.draw.ellipse(
+                (
+                    x - radius,
+                    y - radius // 2,
+                    x + radius,
+                    y + radius // 2
+                ),
+                fill=(70, 65, 62),
+                outline=(150, 140, 130),
+                width=1
+            )
+
+    def draw_boss_hp(self, boss):
+        """보스 체력 및 HP 게이지 출력"""
+
+        # 체력 표시 영역 초기화
+        self.draw.rectangle(
+            (28, 53, 212, 71),
+            fill=self.BLACK
+        )
+
+        text = f"BOSS HP {boss.hp}/{boss.max_hp}"
+
+        bbox = self.draw.textbbox(
+            (0, 0),
+            text,
+            font=self.boss_font
+        )
+
+        text_width = bbox[2] - bbox[0]
+
+        self.draw.text(
+            (120 - text_width // 2, 53),
+            text,
+            font=self.boss_font,
+            fill=self.RED
+        )
+
+        # 게이지 배경
+        self.draw.rectangle(
+            (30, 64, 210, 70),
+            fill=(55, 20, 20),
+            outline=(150, 65, 65)
+        )
+
+        # 현재 체력 비율
+        hp_ratio = boss.hp / boss.max_hp
+        bar_width = int(179 * hp_ratio)
+
+        if bar_width > 0:
+            self.draw.rectangle(
+                (31, 65, 30 + bar_width, 69),
+                fill=self.RED
+            )
+
     def draw_energy_orb(self, x, y, radius):
         """에너지 구슬 출력"""
 
@@ -878,7 +958,8 @@ class Display:
     def update_game_objects(
         self, regions, stars, asteroids,
         player_x, player_y, show_player=True,
-        items=None, shield_active=False, bullets=None
+        items=None, shield_active=False, 
+        bullets=None, boss=None
     ):
         """변경된 작은 영역만 복원하고 모든 객체를 올바른 순서로 다시 그림"""
 
@@ -948,6 +1029,18 @@ class Display:
                 ):
                     self.draw_star(x, y, size)
 
+            # 대형 소행성 보스 출력
+            if boss is not None:
+                boss_region = boss.get_region()
+
+                if (
+                    left < boss_region[2]
+                    and right > boss_region[0]
+                    and top < boss_region[3]
+                    and bottom > boss_region[1]
+                ):
+                    self.draw_boss(boss)
+
             for asteroid in asteroids:
                 x = int(asteroid.x)
                 y = int(asteroid.y)
@@ -1012,6 +1105,18 @@ class Display:
                     player_y,
                     shield_active=shield_active
                 )
+
+            # 보스 체력 게이지를 최상위에 출력
+            if boss is not None:
+                hp_region = boss.get_hp_region()
+
+                if (
+                    left < hp_region[2]
+                    and right > hp_region[0]
+                    and top < hp_region[3]
+                    and bottom > hp_region[1]
+                ):
+                    self.draw_boss_hp(boss)
 
             self._show_region((left, top, right, bottom))
 

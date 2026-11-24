@@ -7,9 +7,11 @@ from display import Display
 from controls import Controls
 from player import Player
 from asteroid import Asteroid
+from boss import Boss
 from collision import (
     check_asteroid_collision,
-    check_item_collision
+    check_item_collision,
+    check_bullet_boss_collision
 )
 from item import EnergyOrb, HeartItem, WeaponItem
 from high_score import HighScore
@@ -29,8 +31,17 @@ class Game:
         self.lives = 3
         self.running = False
         self.started = False
+
         self.level = 1
         self.survival_time = 0.0
+
+        # 개별 레벨 진행 시간
+        self.level_timer = 0.0
+        self.level_duration = 20.0
+
+        # 보스전 관리
+        self.boss = None
+
         self.asteroids = []
         self.asteroid_spawn_timer = 0.0
         self.invincible_timer = 0.0
@@ -88,6 +99,13 @@ class Game:
         self.level = 1
         self.survival_time = 0.0
 
+        # 개별 레벨 진행 시간
+        self.level_timer = 0.0
+        self.level_duration = 20.0
+
+        # 보스전 관리
+        self.boss = None
+
         self.asteroids = []
         self.asteroid_spawn_timer = 0.0
         self.invincible_timer = 0.0
@@ -136,6 +154,175 @@ class Game:
         )
 
         print("게임 재시작!")
+
+    def advance_level(self, regions):
+        """다음 레벨 진입 및 레벨별 이벤트 처리"""
+
+        self.level += 1
+        self.level_timer = 0.0
+
+        self.level_up_timer = 1.2
+        self.level_up_visible = True
+
+        self.display.update_level(
+            self.level,
+            visible=True,
+            enlarged=True
+        )
+
+        print(f"LEVEL UP! LEVEL {self.level}")
+
+        # 5레벨마다 보스전 시작
+        if self.level % 5 == 0:
+            self.start_boss_battle(regions)
+            return
+
+        # 3레벨마다 체력 회복 아이템 생성
+        if (
+            self.level % 3 == 0
+            and self.level not in self.heart_spawned_levels
+        ):
+            heart = HeartItem()
+
+            self.items.append(heart)
+            self.heart_spawned_levels.add(self.level)
+
+            regions.append(heart.get_region())
+
+            print(
+                f"체력 회복 아이템 등장! "
+                f"LEVEL {self.level}"
+            )
+
+        # 무기 강화 아이템 생성
+        if (
+            self.level >= 2
+            and self.level not in self.weapon_spawned_levels
+            and self.player.weapon_level
+                < self.player.max_weapon_level
+        ):
+            weapon_item = WeaponItem()
+
+            self.items.append(weapon_item)
+            self.weapon_spawned_levels.add(self.level)
+
+            regions.append(weapon_item.get_region())
+
+            print(
+                f"무기 강화 아이템 등장! "
+                f"LEVEL {self.level}"
+            )
+
+    def start_boss_battle(self, regions):
+        """보스전 시작 및 전투 상태 설정"""
+
+        self.boss = Boss(self.level)
+
+        # 기존 아이템 제거
+        for item in self.items:
+            regions.append(item.get_region())
+
+        self.items.clear()
+        self.orb_spawn_timer = 0.0
+
+        # 기존 일반 소행성 제거
+        for asteroid in self.asteroids:
+            x = int(asteroid.x)
+            y = int(asteroid.y)
+            r = asteroid.radius
+
+            regions.append((
+                x - r - 2,
+                y - r - 2,
+                x + r + 3,
+                y + r + 3
+            ))
+
+        self.asteroids.clear()
+        self.asteroid_spawn_timer = 0.0
+
+        # 기존 총알 제거
+        for bullet in self.bullets:
+            regions.append(bullet.get_region())
+
+        self.bullets.clear()
+
+        # 자동 발사 타이머 초기화
+        self.player.fire_timer = 0.0
+
+        # 우주선의 기존 위치 기록
+        old_x = int(self.player.x)
+        old_y = int(self.player.y)
+
+        regions.append((
+            old_x - 19,
+            old_y - 21,
+            old_x + 20,
+            old_y + 22
+        ))
+
+        # 보스 영역으로 이동하지 못하도록 제한
+        self.player.min_y = 145
+        self.player.y = max(
+            self.player.min_y,
+            self.player.y
+        )
+
+        # 변경된 우주선 위치 기록
+        new_x = int(self.player.x)
+        new_y = int(self.player.y)
+
+        regions.append((
+            new_x - 19,
+            new_y - 21,
+            new_x + 20,
+            new_y + 22
+        ))
+
+        # 보스 영역 출력
+        regions.append(self.boss.get_region())
+
+        print(
+            f"BOSS 등장! "
+            f"LEVEL {self.level}, "
+            f"HP: {self.boss.hp}"
+        )
+
+    def finish_boss_battle(self, regions):
+        """보스 처치 및 일반 게임 상태 복구"""
+
+        if self.boss is None:
+            return
+
+        # 보스 화면 제거 영역
+        regions.append(self.boss.get_region())
+
+        # 보스 처치 점수 지급
+        self.score += self.boss.score_value
+        self.display.update_score(self.score)
+
+        print(
+            f"BOSS DEFEATED! "
+            f"SCORE: {self.score}"
+        )
+
+        self.boss = None
+
+        # 남아 있는 총알 제거
+        for bullet in self.bullets:
+            regions.append(bullet.get_region())
+
+        self.bullets.clear()
+
+        # 우주선 이동 범위 복구
+        self.player.min_y = 55
+        self.player.fire_timer = 0.0
+
+        # 에너지 구슬 생성 타이머 초기화
+        self.orb_spawn_timer = 0.0
+
+        # 다음 일반 레벨 진입
+        self.advance_level(regions)
 
     def run(self):
         self.running = True
@@ -286,63 +473,15 @@ class Game:
                     # 기존 부분 렌더링 과정에서 아이콘을 함께 갱신
                     regions.append((194, 172, 233, 211))
 
-                # 생존 시간 및 레벨 갱신
+                # 전체 생존 시간 갱신
                 self.survival_time += dt
-                new_level = min(5, int(self.survival_time // 20) + 1)
 
-                if new_level != self.level:
-                    self.level = new_level
+                # 일반 레벨에서만 레벨 진행 시간 증가
+                if self.boss is None:
+                    self.level_timer += dt
 
-                    self.level_up_timer = 1.2
-                    self.level_up_visible = True
-
-                    # 레벨업 순간 글씨 확대
-                    self.display.update_level(
-                        self.level,
-                        visible=True,
-                        enlarged=True
-                    )
-
-                    print(f"LEVEL UP! LEVEL {self.level}")
-
-                    # 3레벨마다 체력 회복 아이템 1회 생성
-                    if (
-                        self.level % 3 == 0
-                        and self.level not in self.heart_spawned_levels
-                    ):
-                        heart = HeartItem()
-
-                        self.items.append(heart)
-                        self.heart_spawned_levels.add(self.level)
-
-                        # 생성된 아이템의 화면 영역 갱신
-                        regions.append(heart.get_region())
-
-                        print(
-                            f"체력 회복 아이템 등장! "
-                            f"LEVEL {self.level}"
-                        )
-
-                    # 게임 레벨 2부터 무기 강화 아이템 생성
-                    if (
-                        self.level >= 2
-                        and self.level not in self.weapon_spawned_levels
-                        and self.player.weapon_level
-                            < self.player.max_weapon_level
-                    ):
-                        weapon_item = WeaponItem()
-
-                        self.items.append(weapon_item)
-                        self.weapon_spawned_levels.add(self.level)
-
-                        regions.append(
-                            weapon_item.get_region()
-                        )
-
-                        print(
-                            f"무기 강화 아이템 등장! "
-                            f"LEVEL {self.level}"
-                        )
+                    if self.level_timer >= self.level_duration:
+                        self.advance_level(regions)
 
                 # 레벨업 애니메이션
                 previous_level_up_visible = self.level_up_visible
@@ -377,13 +516,30 @@ class Game:
                 else:
                     self.level_up_visible = True
 
-                max_asteroids = self.level + 1
+                # 일반 소행성 난이도 제한
+                difficulty_level = min(self.level, 10)
+
+                max_asteroids = min(self.level + 1, 8)
+
                 spawn_interval = max(
-                    0.8, 2.0 - (self.level - 1) * 0.3
+                    0.8,
+                    2.0 - (difficulty_level - 1) * 0.3
                 )
 
-                min_speed = 35 + (self.level - 1) * 10
-                max_speed = 65 + (self.level - 1) * 10
+                min_speed = (
+                    35 + (difficulty_level - 1) * 10
+                )
+
+                max_speed = (
+                    65 + (difficulty_level - 1) * 10
+                )
+
+                # 보스전에서는 좁아진 이동 공간 고려
+                if self.boss is not None:
+                    max_asteroids = 3
+                    spawn_interval = 1.5
+                    min_speed = 45
+                    max_speed = 75
 
                 # 소행성 생성
                 self.asteroid_spawn_timer += dt
@@ -392,9 +548,30 @@ class Game:
                     self.asteroid_spawn_timer >= spawn_interval
                     and len(self.asteroids) < max_asteroids
                 ):
-                    asteroid = Asteroid(min_speed, max_speed)
+                    asteroid = Asteroid(
+                        min_speed,
+                        max_speed
+                    )
+
+                    # 보스전에서는 보스 아래에서 생성
+                    if self.boss is not None:
+                        asteroid.y = (
+                            124 + asteroid.radius
+                        )
+
                     self.asteroids.append(asteroid)
                     self.asteroid_spawn_timer = 0.0
+
+                    x = int(asteroid.x)
+                    y = int(asteroid.y)
+                    r = asteroid.radius
+
+                    regions.append((
+                        x - r - 2,
+                        y - r - 2,
+                        x + r + 3,
+                        y + r + 3
+                    ))
 
                 # 소행성 이동 및 이전/현재 위치 기록
                 remaining_asteroids = []
@@ -429,24 +606,25 @@ class Game:
 
                 self.asteroids = remaining_asteroids
 
-                # 에너지 구슬 생성
-                self.orb_spawn_timer += dt
+                # 일반 레벨에서만 에너지 구슬 생성
+                if self.boss is None:
+                    self.orb_spawn_timer += dt
 
-                energy_count = sum(
-                    1 for item in self.items
-                    if item.item_type == "energy"
-                )
+                    energy_count = sum(
+                        1 for item in self.items
+                        if item.item_type == "energy"
+                    )
 
-                if (
-                    self.orb_spawn_timer >= 4.0
-                    and energy_count < 2
-                ):
-                    orb = EnergyOrb()
+                    if (
+                        self.orb_spawn_timer >= 4.0
+                        and energy_count < 2
+                    ):
+                        orb = EnergyOrb()
 
-                    self.items.append(orb)
-                    self.orb_spawn_timer = 0.0
+                        self.items.append(orb)
+                        self.orb_spawn_timer = 0.0
 
-                    regions.append(orb.get_region())
+                        regions.append(orb.get_region())
 
                 # 전체 아이템 이동 및 제거 처리
                 remaining_items = []
@@ -562,8 +740,8 @@ class Game:
 
                 self.bullets = remaining_bullets
 
-                # 테스트용 자동 발사 활성화
-                auto_fire = True
+                # 보스전에서만 자동 발사
+                auto_fire = self.boss is not None
 
                 if auto_fire:
                     new_bullets = self.player.fire(dt)
@@ -571,6 +749,50 @@ class Game:
                     for bullet in new_bullets:
                         self.bullets.append(bullet)
                         regions.append(bullet.get_region())
+
+                # 총알과 보스 충돌 판정
+                if self.boss is not None:
+                    remaining_bullets = []
+
+                    for bullet in self.bullets:
+                        if (
+                            not self.boss.is_defeated()
+                            and check_bullet_boss_collision(
+                                bullet,
+                                self.boss
+                            )
+                        ):
+                            # 보스 체력 감소
+                            self.boss.take_damage(
+                                bullet.damage
+                            )
+
+                            # 충돌한 총알 제거 영역
+                            regions.append(
+                                bullet.get_region()
+                            )
+
+                            # 체력 게이지 갱신
+                            regions.append(
+                                self.boss.get_hp_region()
+                            )
+
+                            print(
+                                f"BOSS HIT! "
+                                f"HP: {self.boss.hp}/"
+                                f"{self.boss.max_hp}"
+                            )
+
+                        else:
+                            remaining_bullets.append(
+                                bullet
+                            )
+
+                    self.bullets = remaining_bullets
+
+                    # 보스 처치 여부 확인
+                    if self.boss.is_defeated():
+                        self.finish_boss_battle(regions)
 
                 # 충돌 후 무적 시간 감소
                 self.invincible_timer = max(
@@ -727,7 +949,8 @@ class Game:
                     show_player=self.player_visible,
                     items=self.items,
                     shield_active=skill_active,
-                    bullets=self.bullets
+                    bullets=self.bullets,
+                    boss=self.boss
                 )
 
                 time.sleep(0.01)
