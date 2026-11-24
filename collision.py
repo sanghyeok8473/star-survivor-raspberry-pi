@@ -1,38 +1,32 @@
 import math
 
 
-def check_asteroid_collision(player, asteroid):
-    """우주선과 소행성의 충돌 여부를 판정"""
-
-    # 우주선의 충돌 영역 (실제 그림보다 약간 작게)
-    player_half_width = 8
-    player_half_height = 11
-
-    # 우주선 중심과 소행성 중심 사이 거리
-    dx = abs(asteroid.x - player.x)
-    dy = abs(asteroid.y - player.y)
-
-    # 사각형과 원의 충돌 판정
-    closest_x = max(dx - player_half_width, 0)
-    closest_y = max(dy - player_half_height, 0)
-
-    distance_squared = closest_x ** 2 + closest_y ** 2
-
-    return distance_squared <= asteroid.radius ** 2
-
-def check_orb_collision(player, orb):
-    """우주선과 에너지 구슬의 충돌 판정"""
+def check_circle_collision(player, obj):
+    """우주선과 원형 오브젝트의 충돌 판정"""
 
     player_half_width = 8
     player_half_height = 11
 
-    dx = abs(orb.x - player.x)
-    dy = abs(orb.y - player.y)
+    dx = abs(obj.x - player.x)
+    dy = abs(obj.y - player.y)
 
     closest_x = max(dx - player_half_width, 0)
     closest_y = max(dy - player_half_height, 0)
 
-    return (
+    distance_squared = (
         closest_x ** 2 + closest_y ** 2
-        <= orb.radius ** 2
     )
+
+    return distance_squared <= obj.radius ** 2
+
+
+def check_asteroid_collision(player, asteroid):
+    """우주선과 소행성의 충돌 판정"""
+
+    return check_circle_collision(player, asteroid)
+
+
+def check_item_collision(player, item):
+    """우주선과 아이템의 충돌 판정"""
+
+    return check_circle_collision(player, item)

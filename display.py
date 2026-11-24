@@ -548,6 +548,55 @@ class Display:
             fill=(220, 255, 255)
         )
 
+    def draw_heart_item(self, x, y, radius):
+        """체력 회복 아이템 출력"""
+
+        x = int(x)
+        y = int(y)
+
+        # 바깥쪽 붉은 광채
+        self.draw.ellipse(
+            (
+                x - radius - 2,
+                y - radius - 2,
+                x + radius + 2,
+                y + radius + 2
+            ),
+            fill=(85, 15, 25),
+            outline=(180, 45, 60),
+            width=1
+        )
+
+        # 기존 HUD 하트 그리기 함수 재활용
+        self.draw_heart(
+            x - 7,
+            y - 7,
+            self.RED
+        )
+
+        # 하트의 밝은 반사광
+        self.draw.ellipse(
+            (x - 5, y - 5, x - 3, y - 3),
+            fill=(255, 210, 210)
+        )
+
+    def draw_item(self, item):
+        """아이템 종류에 따라 화면 출력"""
+
+        if item.item_type == "energy":
+            self.draw_energy_orb(
+                item.x,
+                item.y,
+                item.radius
+            )
+
+        elif item.item_type == "heart":
+            self.draw_heart_item(
+                item.x,
+                item.y,
+                item.radius
+            )
+
     def initialize_game_screen(
         self, x, y, stars, score=0, lives=3,
         show_start_message=True, level=1
@@ -685,7 +734,8 @@ class Display:
 
     def update_game_objects(
         self, regions, stars, asteroids,
-        player_x, player_y, show_player=True, orbs=None, shield_active=False
+        player_x, player_y, show_player=True,
+        items=None, shield_active=False
     ):
         """변경된 작은 영역만 복원하고 모든 객체를 올바른 순서로 다시 그림"""
 
@@ -766,11 +816,11 @@ class Display:
                 ):
                     self.draw_asteroid(x, y, r)
 
-            # 에너지 구슬 출력
-            for orb in (orbs or []):
-                x = int(orb.x)
-                y = int(orb.y)
-                r = orb.radius + 2
+            # 아이템 출력
+            for item in (items or []):
+                x = int(item.x)
+                y = int(item.y)
+                r = item.radius + 2
 
                 if (
                     left < x + r + 1
@@ -778,7 +828,7 @@ class Display:
                     and top < y + r + 1
                     and bottom > y - r
                 ):
-                    self.draw_energy_orb(x, y, orb.radius)
+                    self.draw_item(item)
 
             # 스킬 아이콘을 먼저 그리기
             skill_box = (194, 172, 233, 211)
