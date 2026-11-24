@@ -54,7 +54,8 @@ class Display:
         self.font = ImageFont.load_default()
         self.hud_font = ImageFont.load_default(size=12)
         self.skill_cooldown_remaining = 0.0
-        self.skill_font = ImageFont.load_default(size=12)
+        self.skill_font = ImageFont.load_default(size=15)
+        self.level_up_font = ImageFont.load_default(size=16)
         self.shield_color = (80, 255, 160)
 
     def _show_region(self, box):
@@ -285,7 +286,7 @@ class Display:
             screen_draw.rectangle(box, fill=self.BLACK)
 
             if visible:
-                large_font = ImageFont.load_default(size=16)
+                large_font = self.level_up_font
 
                 large_bbox = screen_draw.textbbox(
                     (0, 0), normal_text, font=large_font
@@ -341,7 +342,7 @@ class Display:
 
         if cooling:
             text = str(math.ceil(self.skill_cooldown_remaining))
-            font = ImageFont.load_default(size=15)
+            font = self.skill_font
 
             bbox = draw.textbbox((0, 0), text, font=font)
 
@@ -397,28 +398,43 @@ class Display:
 
         # 중앙 박스
         draw.rectangle(
-            box,
+            (48, 95, 191, 144),
             fill=(0, 15, 30),
             outline=self.CYAN,
             width=2
         )
 
+        # 중앙 정렬 텍스트 출력
+        def centered_text(y, text, font, color):
+            bbox = draw.textbbox((0, 0), text, font=font)
+
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+
+            x = 120 - text_width // 2
+            y = y - text_height // 2 - bbox[1]
+
+            draw.text(
+                (x, y),
+                text,
+                font=font,
+                fill=color
+            )
+
         # PAUSED 문구
-        font = ImageFont.load_default(size=20)
-        text = "PAUSED"
+        centered_text(
+            110,
+            "PAUSED",
+            ImageFont.load_default(size=20),
+            self.YELLOW
+        )
 
-        bbox = draw.textbbox((0, 0), text, font=font)
-        text_width = bbox[2] - bbox[0]
-        text_height = bbox[3] - bbox[1]
-
-        x = 120 - text_width // 2
-        y = 120 - text_height // 2 - bbox[1]
-
-        draw.text(
-            (x, y),
-            text,
-            font=font,
-            fill=self.YELLOW
+        # 게임 재개 안내
+        centered_text(
+            132,
+            "PRESS B TO RESUME",
+            self.font,
+            self.WHITE
         )
 
         self.draw = ImageDraw.Draw(self.image)

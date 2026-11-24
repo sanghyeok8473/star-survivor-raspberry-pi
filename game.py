@@ -171,8 +171,21 @@ class Game:
                         print("게임 일시정지")
                     else:
                         self.display.hide_pause()
+
+                        # 게임 재개 시 시간 기준 초기화
                         previous_time = time.monotonic()
+
+                        # 일시정지 중 A 버튼 입력이 스킬을 발동하지 않도록 처리
+                        self.skill_button_was_pressed = (
+                            self.controls.is_start_pressed()
+                        )
+
+                        self.pause_button_was_pressed = pause_pressed
+
                         print("게임 재개")
+
+                        # 다음 프레임부터 게임 로직 실행
+                        continue
 
                 self.pause_button_was_pressed = pause_pressed
 
@@ -181,7 +194,8 @@ class Game:
                     time.sleep(0.02)
                     continue
 
-                dt = min(current_time - previous_time, 0.05)
+                # 프레임 경과 시간이 음수가 되지 않도록 제한
+                dt = max(0.0, min(current_time - previous_time, 0.05))
                 previous_time = current_time
 
                 regions = []
@@ -231,15 +245,14 @@ class Game:
 
                 if remaining != self.skill_cooldown_display:
                     self.skill_cooldown_display = remaining
-                    self.display.update_skill_icon(self.skill_cooldown_timer)
 
-                    # 쿨타임 숫자 변경 시 우주선도 다시 그리기
-                    px, py = int(self.player.x), int(self.player.y)
+                    # 스킬 아이콘 상태만 변경
+                    self.display.skill_cooldown_remaining = (
+                        self.skill_cooldown_timer
+                    )
 
-                    regions.append((
-                        px - 19, py - 21,
-                        px + 20, py + 22
-                    ))
+                    # 기존 부분 렌더링 과정에서 아이콘을 함께 갱신
+                    regions.append((194, 172, 233, 211))
 
                 # 생존 시간 및 레벨 갱신
                 self.survival_time += dt
@@ -543,6 +556,7 @@ class Game:
                 )
 
                 time.sleep(0.01)
+            
 
         except KeyboardInterrupt:
             print("게임 종료 요청")
