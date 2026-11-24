@@ -249,6 +249,62 @@ class Display:
         self.draw = ImageDraw.Draw(self.image)
         self._show_region(box)
 
+    def update_weapon_level(self, weapon_level):
+        """화면 하단 무기 레벨 및 강화 게이지 갱신"""
+
+        weapon_level = max(1, min(6, weapon_level))
+
+        box = (0, 216, self.WIDTH, self.HEIGHT)
+
+        background_draw = ImageDraw.Draw(self.background)
+
+        # 기존 하단 영역 초기화
+        background_draw.rectangle(
+            (0, 216, self.WIDTH - 1, self.HEIGHT - 1),
+            fill=self.BLACK
+        )
+
+        # 무기 레벨 텍스트
+        weapon_text = (
+            "WEAPON MAX"
+            if weapon_level == 6
+            else f"WEAPON LV.{weapon_level}"
+        )
+
+        background_draw.text(
+            (10, 222),
+            weapon_text,
+            font=self.hud_font,
+            fill=(210, 170, 255)
+        )
+
+        # 무기 강화 게이지 6칸
+        for i in range(6):
+            x = 124 + i * 18
+
+            color = (
+                (180, 100, 255)
+                if i < weapon_level
+                else (35, 35, 45)
+            )
+
+            background_draw.rectangle(
+                (x, 222, x + 13, 233),
+                fill=color,
+                outline=(110, 80, 140)
+            )
+
+        # 화면 버퍼에 반영
+        self.image.paste(
+            self.background.crop(box),
+            (box[0], box[1])
+        )
+
+        self.draw = ImageDraw.Draw(self.image)
+
+        # 하단 HUD 영역만 LCD에 전송
+        self._show_region(box)
+
     def update_level(self, level, visible=True, enlarged=False):
         """레벨 표시 및 레벨업 애니메이션"""
 
@@ -580,6 +636,51 @@ class Display:
             fill=(255, 210, 210)
         )
 
+    def draw_weapon_item(self, x, y, radius):
+        """무기 강화 아이템 출력"""
+
+        x = int(x)
+        y = int(y)
+
+        # 바깥쪽 보라색 광채
+        self.draw.ellipse(
+            (
+                x - radius - 2,
+                y - radius - 2,
+                x + radius + 2,
+                y + radius + 2
+            ),
+            fill=(50, 15, 80),
+            outline=(130, 60, 190),
+            width=1
+        )
+
+        # 아이템 본체
+        self.draw.ellipse(
+            (
+                x - radius,
+                y - radius,
+                x + radius,
+                y + radius
+            ),
+            fill=(145, 60, 220),
+            outline=(210, 170, 255)
+        )
+
+        # 노란색 번개 모양
+        self.draw.polygon(
+            [
+                (x + 1, y - 6),
+                (x - 4, y + 1),
+                (x, y + 1),
+                (x - 2, y + 6),
+                (x + 5, y - 2),
+                (x + 1, y - 2),
+                (x + 3, y - 6)
+            ],
+            fill=self.YELLOW
+        )
+
     def draw_item(self, item):
         """아이템 종류에 따라 화면 출력"""
 
@@ -592,6 +693,13 @@ class Display:
 
         elif item.item_type == "heart":
             self.draw_heart_item(
+                item.x,
+                item.y,
+                item.radius
+            )
+
+        elif item.item_type == "weapon":
+            self.draw_weapon_item(
                 item.x,
                 item.y,
                 item.radius

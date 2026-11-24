@@ -11,7 +11,7 @@ from collision import (
     check_asteroid_collision,
     check_item_collision
 )
-from item import EnergyOrb, HeartItem
+from item import EnergyOrb, HeartItem, WeaponItem
 from high_score import HighScore
 
 class Game:
@@ -49,7 +49,10 @@ class Game:
 
         # 체력 회복 아이템 등장 기록
         self.heart_spawned_levels = set()
-        
+
+        # 무기 강화 아이템 등장 기록
+        self.weapon_spawned_levels = set()
+                
         self.level_up_timer = 0.0
         self.level_up_visible = False
         self.paused = False
@@ -97,6 +100,7 @@ class Game:
         self.bullets = []
         self.orb_spawn_timer = 0.0
         self.heart_spawned_levels = set()
+        self.weapon_spawned_levels = set()
 
         self.level_up_timer = 0.0
         self.level_up_visible = False
@@ -125,6 +129,10 @@ class Game:
             self.lives,
             show_start_message=False,
             level=self.level
+        )
+
+        self.display.update_weapon_level(
+            self.player.weapon_level
         )
 
         print("게임 재시작!")
@@ -173,6 +181,10 @@ class Game:
                         previous_time = current_time
 
                         self.display.clear_start_message()
+
+                        self.display.update_weapon_level(
+                            self.player.weapon_level
+                        )
 
                         print("게임 시작!")
 
@@ -276,8 +288,7 @@ class Game:
 
                 # 생존 시간 및 레벨 갱신
                 self.survival_time += dt
-                new_level = min(5, int(self.survival_time // 5) + 1)
-                # new_level = min(5, int(self.survival_time // 20) + 1)
+                new_level = min(5, int(self.survival_time // 20) + 1)
 
                 if new_level != self.level:
                     self.level = new_level
@@ -309,6 +320,27 @@ class Game:
 
                         print(
                             f"체력 회복 아이템 등장! "
+                            f"LEVEL {self.level}"
+                        )
+
+                    # 게임 레벨 2부터 무기 강화 아이템 생성
+                    if (
+                        self.level >= 2
+                        and self.level not in self.weapon_spawned_levels
+                        and self.player.weapon_level
+                            < self.player.max_weapon_level
+                    ):
+                        weapon_item = WeaponItem()
+
+                        self.items.append(weapon_item)
+                        self.weapon_spawned_levels.add(self.level)
+
+                        regions.append(
+                            weapon_item.get_region()
+                        )
+
+                        print(
+                            f"무기 강화 아이템 등장! "
                             f"LEVEL {self.level}"
                         )
 
@@ -656,6 +688,26 @@ class Game:
 
                             else:
                                 print("체력이 이미 최대입니다.")
+
+                        # 무기 강화 아이템 획득
+                        elif item.item_type == "weapon":
+
+                            upgraded = self.player.upgrade_weapon(
+                                item.upgrade_amount
+                            )
+
+                            if upgraded:
+                                self.display.update_weapon_level(
+                                    self.player.weapon_level
+                                )
+
+                                print(
+                                    f"무기 강화 성공! "
+                                    f"WEAPON LV.{self.player.weapon_level}"
+                                )
+
+                            else:
+                                print("무기가 이미 최대 레벨입니다.")
 
                         # 획득한 아이템 영역 복원
                         regions.append(item.get_region())

@@ -108,3 +108,18 @@ class HeartItem(Item):
 
         self.item_type = "heart"
         self.heal_amount = 1
+
+class WeaponItem(Item):
+    """무기 강화 아이템"""
+
+    def __init__(self):
+        super().__init__(
+            radius=7,
+            min_speed=25,
+            max_speed=30,
+            lifetime=5.0,
+            start_y=59
+        )
+
+        self.item_type = "weapon"
+        self.upgrade_amount = 1

@@ -40,8 +40,20 @@ class Player:
         self.x = max(self.min_x, min(self.x, self.max_x))
         self.y = max(self.min_y, min(self.y, self.max_y))
 
+    def upgrade_weapon(self, amount=1):
+        """무기 강화 및 최대 레벨 제한"""
+
+        previous_level = self.weapon_level
+
+        self.weapon_level = min(
+            self.max_weapon_level,
+            self.weapon_level + amount
+        )
+
+        return self.weapon_level > previous_level
+
     def fire(self, dt):
-        """발사 주기에 따라 총알 생성"""
+        """무기 레벨에 따라 총알 생성"""
 
         self.fire_timer += dt
 
@@ -50,11 +62,43 @@ class Player:
 
         self.fire_timer -= self.fire_interval
 
-        # 기본 무기: 우주선 중앙에서 총알 1개 발사
-        return [
-            Bullet(
-                x=self.x,
-                y=self.y - 20,
-                damage=1
+        # 무기 레벨별 발사 위치
+        if self.weapon_level == 1:
+            offsets = [0]
+
+        elif self.weapon_level == 2:
+            offsets = [-6, 6]
+
+        else:
+            offsets = [-10, 0, 10]
+
+        # 무기 레벨별 총알 속성
+        weapon_stats = {
+            1: (1, 3, 9, (255, 220, 50)),
+            2: (1, 3, 9, (255, 220, 50)),
+            3: (1, 3, 9, (255, 220, 50)),
+            4: (2, 5, 11, (0, 220, 255)),
+            5: (3, 7, 13, (180, 100, 255)),
+            6: (4, 9, 15, (255, 70, 180))
+        }
+
+        damage, width, height, color = (
+            weapon_stats[self.weapon_level]
+        )
+
+        bullets = []
+
+        for offset in offsets:
+            bullets.append(
+                Bullet(
+                    x=self.x + offset,
+                    y=self.y - 20,
+                    damage=damage,
+                    speed=180,
+                    width=width,
+                    height=height,
+                    color=color
+                )
             )
-        ]
+
+        return bullets
