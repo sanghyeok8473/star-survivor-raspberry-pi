@@ -597,6 +597,41 @@ class Display:
                 item.radius
             )
 
+    def draw_bullet(self, bullet):
+        """총알 출력"""
+
+        x = int(bullet.x)
+        y = int(bullet.y)
+
+        left = max(0, x - bullet.width // 2)
+        right = min(
+            self.WIDTH - 1,
+            x + (bullet.width - 1) // 2
+        )
+
+        top = max(50, y - bullet.height // 2)
+        bottom = min(
+            214,
+            y + (bullet.height - 1) // 2
+        )
+
+        if left > right or top > bottom:
+            return
+
+        # 총알 본체
+        self.draw.rectangle(
+            (left, top, right, bottom),
+            fill=bullet.color
+        )
+
+        # 총알 중앙의 밝은 빛
+        if left <= x <= right:
+            self.draw.line(
+                (x, top, x, bottom),
+                fill=self.WHITE,
+                width=1
+            )
+
     def initialize_game_screen(
         self, x, y, stars, score=0, lives=3,
         show_start_message=True, level=1
@@ -735,7 +770,7 @@ class Display:
     def update_game_objects(
         self, regions, stars, asteroids,
         player_x, player_y, show_player=True,
-        items=None, shield_active=False
+        items=None, shield_active=False, bullets=None
     ):
         """변경된 작은 영역만 복원하고 모든 객체를 올바른 순서로 다시 그림"""
 
@@ -815,6 +850,18 @@ class Display:
                     and top < y + r + 1 and bottom > y - r
                 ):
                     self.draw_asteroid(x, y, r)
+
+            # 총알 출력
+            for bullet in (bullets or []):
+                bullet_region = bullet.get_region()
+
+                if (
+                    left < bullet_region[2]
+                    and right > bullet_region[0]
+                    and top < bullet_region[3]
+                    and bottom > bullet_region[1]
+                ):
+                    self.draw_bullet(bullet)
 
             # 아이템 출력
             for item in (items or []):

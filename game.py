@@ -41,6 +41,9 @@ class Game:
         # 아이템 통합 관리
         self.items = []
 
+        # 총알 관리
+        self.bullets = []
+
         # 에너지 구슬 생성 타이머
         self.orb_spawn_timer = 0.0
 
@@ -91,6 +94,7 @@ class Game:
         self.started = True
         self.player_visible = True
         self.items = []
+        self.bullets = []
         self.orb_spawn_timer = 0.0
         self.heart_spawned_levels = set()
 
@@ -272,7 +276,8 @@ class Game:
 
                 # 생존 시간 및 레벨 갱신
                 self.survival_time += dt
-                new_level = min(5, int(self.survival_time // 20) + 1)
+                new_level = min(5, int(self.survival_time // 5) + 1)
+                # new_level = min(5, int(self.survival_time // 20) + 1)
 
                 if new_level != self.level:
                     self.level = new_level
@@ -491,6 +496,50 @@ class Game:
                         new_x + 20, new_y + 22
                     ))
 
+                # 총알 이동 및 화면 이탈 처리
+                remaining_bullets = []
+
+                for bullet in self.bullets:
+                    old_x = int(bullet.x)
+                    old_y = int(bullet.y)
+
+                    old_region = bullet.get_region()
+
+                    bullet.update(dt)
+
+                    new_bullet_x = int(bullet.x)
+                    new_bullet_y = int(bullet.y)
+
+                    new_region = bullet.get_region()
+
+                    # 화면 상단을 벗어난 총알 제거
+                    if bullet.is_out_of_bounds():
+                        regions.append(old_region)
+                        regions.append(new_region)
+                        continue
+
+                    # 총알 위치가 변경되었을 때만 갱신
+                    if (
+                        old_x != new_bullet_x
+                        or old_y != new_bullet_y
+                    ):
+                        regions.append(old_region)
+                        regions.append(new_region)
+
+                    remaining_bullets.append(bullet)
+
+                self.bullets = remaining_bullets
+
+                # 테스트용 자동 발사 활성화
+                auto_fire = True
+
+                if auto_fire:
+                    new_bullets = self.player.fire(dt)
+
+                    for bullet in new_bullets:
+                        self.bullets.append(bullet)
+                        regions.append(bullet.get_region())
+
                 # 충돌 후 무적 시간 감소
                 self.invincible_timer = max(
                     0.0, self.invincible_timer - dt
@@ -625,7 +674,8 @@ class Game:
                     new_y,
                     show_player=self.player_visible,
                     items=self.items,
-                    shield_active=skill_active
+                    shield_active=skill_active,
+                    bullets=self.bullets
                 )
 
                 time.sleep(0.01)
