@@ -22,3 +22,7 @@ desktop.ini
 .pytest_cache/
 .mypy_cache/
 .coverage
+
+# Local high score data
+data/high_score.json
+data/high_score.tmp

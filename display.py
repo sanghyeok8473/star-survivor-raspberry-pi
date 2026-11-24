@@ -810,8 +810,15 @@ class Display:
 
             self._show_region((left, top, right, bottom))
 
-    def show_game_over(self, score, level):
-        """게임 종료 화면 출력"""
+    def show_game_over(
+        self,
+        score,
+        level,
+        high_score,
+        achieved_at,
+        new_record=False
+    ):
+        """게임 종료 및 최고 기록 화면 출력"""
 
         self.image = Image.new(
             "RGB",
@@ -823,34 +830,90 @@ class Display:
 
         title_font = ImageFont.load_default(size=25)
         info_font = ImageFont.load_default(size=16)
+        record_font = ImageFont.load_default(size=26)
+        label_font = ImageFont.load_default(size=13)
+        date_font = ImageFont.load_default(size=12)
 
         def centered_text(y, text, font, color):
-            bbox = self.draw.textbbox((0, 0), text, font=font)
+            bbox = self.draw.textbbox(
+                (0, 0),
+                text,
+                font=font
+            )
+
             text_width = bbox[2] - bbox[0]
             x = (self.WIDTH - text_width) // 2
 
             self.draw.text(
-                (x, y),
+                (x, y - bbox[1]),
                 text,
                 font=font,
                 fill=color
             )
 
-        centered_text(48, "GAME OVER", title_font, self.RED)
-        centered_text(105, f"SCORE: {score:04d}", info_font, self.YELLOW)
-        centered_text(135, f"LEVEL: {level}", info_font, self.CYAN)
+        # 게임 종료 제목
+        centered_text(
+            20, "GAME OVER",
+            title_font, self.RED
+        )
+
+        # 현재 게임 결과
+        centered_text(
+            58, f"SCORE: {score:04d}",
+            info_font, self.YELLOW
+        )
+
+        centered_text(
+            81, f"LEVEL: {level}",
+            info_font, self.CYAN
+        )
 
         self.draw.line(
-            (25, 175, 215, 175),
+            (25, 108, 215, 108),
             fill=self.CYAN,
             width=1
         )
 
+        # 최고 기록 제목
+        if new_record:
+            centered_text(
+                118, "NEW HIGH SCORE!",
+                label_font, self.YELLOW
+            )
+        else:
+            centered_text(
+                118, "HIGH SCORE",
+                label_font, self.WHITE
+            )
+
+        # 최고 점수
         centered_text(
-            193,
-            "PRESS A TO RESTART",
-            self.font,
-            self.WHITE
+            139, f"{high_score:04d}",
+            record_font, self.YELLOW
+        )
+
+        # 최고 기록 달성 시간
+        record_date = (
+            achieved_at
+            if achieved_at
+            else "NO RECORD YET"
+        )
+
+        centered_text(
+            170, record_date,
+            date_font, self.WHITE
+        )
+
+        self.draw.line(
+            (25, 196, 215, 196),
+            fill=self.CYAN,
+            width=1
+        )
+
+        # 재시작 안내
+        centered_text(
+            210, "PRESS A TO RESTART",
+            self.font, self.WHITE
         )
 
         self.disp.image(self.image)

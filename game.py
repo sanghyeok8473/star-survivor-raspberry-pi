@@ -9,6 +9,7 @@ from player import Player
 from asteroid import Asteroid
 from collision import check_asteroid_collision, check_orb_collision
 from item import EnergyOrb
+from high_score import HighScore
 
 class Game:
     """STAR SURVIVOR 게임 진행 관리"""
@@ -17,6 +18,9 @@ class Game:
         self.display = Display()
         self.controls = Controls()
         self.player = Player()
+
+        # 최고 기록 관리
+        self.high_score = HighScore()
 
         self.score = 0
         self.lives = 3
@@ -506,9 +510,19 @@ class Game:
                                     f"도달 레벨: {self.level}"
                                 )
 
-                                self.display.show_game_over(
+                                # 최고 기록 갱신 여부 확인
+                                new_record = self.high_score.update(
                                     self.score,
                                     self.level
+                                )
+
+                                # 게임 종료 화면 출력
+                                self.display.show_game_over(
+                                    self.score,
+                                    self.level,
+                                    self.high_score.score,
+                                    self.high_score.achieved_at,
+                                    new_record
                                 )
 
                             break
