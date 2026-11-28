@@ -96,8 +96,19 @@ class Display:
 
         draw = ImageDraw.Draw(self.background)
 
+        # 게임 제목 중앙 정렬
+        title = "STAR SURVIVOR"
+
+        bbox = draw.textbbox(
+            (0, 0), title, font=self.font
+        )
+
+        text_width = bbox[2] - bbox[0]
+
+        x = (self.WIDTH - text_width) // 2 - bbox[0]
+
         draw.text(
-            (55, 8), "STAR SURVIVOR",
+            (x, 8), title,
             font=self.font, fill=self.CYAN
         )
 
